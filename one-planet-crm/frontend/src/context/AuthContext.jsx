@@ -1,0 +1,55 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
+
+const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('opt_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem('opt_token') || null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const verifyUser = async () => {
+      if (token) {
+        try {
+          const res = await api.get('/auth/me');
+          if (res.data?.success) {
+            setUser(res.data.user);
+            localStorage.setItem('opt_user', JSON.stringify(res.data.user));
+          }
+        } catch (err) {
+          console.error('Session validation error:', err);
+          logout();
+        }
+      }
+      setLoading(false);
+    };
+
+    verifyUser();
+  }, [token]);
+
+  const login = (authToken, userData) => {
+    setToken(authToken);
+    setUser(userData);
+    localStorage.setItem('opt_token', authToken);
+    localStorage.setItem('opt_user', JSON.stringify(userData));
+  };
+
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('opt_token');
+    localStorage.removeItem('opt_user');
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, token, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);
